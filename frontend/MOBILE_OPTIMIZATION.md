@@ -127,7 +127,7 @@ All interactive elements follow iOS Human Interface Guidelines:
 ## Testing Recommendations
 
 ### Device Testing
-1. **Small Mobile**: iPhone Shelterflex (375×667)
+1. **Small Mobile**: iPhone SE (375×667)
 2. **Standard Mobile**: iPhone 12/13 (390×844)
 3. **Large Mobile**: iPhone 14 Pro Max (430×932)
 4. **Tablet**: iPad (768×1024)
