@@ -8,7 +8,18 @@ import { NetworkStatusBanner } from '@/components/network-status-banner'
 import { ServiceWorkerRegister } from '@/components/service-worker-register'
 import { WebVitalsReporter } from '@/components/web-vitals-reporter'
 import { PerformanceMonitor } from '@/components/PerformanceMonitor'
+import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
   title: 'Shelterflex - Rent Now, Pay Later',
@@ -27,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <ErrorBoundary>
           <ServiceWorkerRegister />
           <WebVitalsReporter />
