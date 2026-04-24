@@ -1,5 +1,4 @@
-"use client";
-
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -10,18 +9,62 @@ import {
   ArrowLeft,
   CheckCircle,
   UserX,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { landlordTenants as tenants } from "@/lib/mockData";
+import { apiFetch } from "@/lib/api";
+
+interface Tenant {
+  id: string;
+  name: string;
+  property: string;
+  status: string;
+  leaseStart: string;
+  leaseEnd: string;
+  monthlyPayment: number | string;
+  totalPaid: number | string;
+  verified: boolean;
+}
 
 export default function TenantsPage() {
-  const formatCurrency = (amount: number) => {
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        const data = await apiFetch<Tenant[]>("/api/landlord/tenants");
+        setTenants(data);
+      } catch (error) {
+        console.error("Failed to fetch tenants:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTenants();
+  }, []);
+
+  const formatCurrency = (amount: number | string) => {
+    const val = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat("en-NG", {
       style: "currency",
       currency: "NGN",
       minimumFractionDigits: 0,
-    }).format(amount);
+    }).format(val);
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -93,7 +136,11 @@ export default function TenantsPage() {
 
           {/* Tenants Grid */}
           <div className="grid gap-6">
-            {tenants.length === 0 ? (
+            {loading ? (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              </div>
+            ) : tenants.length === 0 ? (
               <Card className="border-3 border-foreground p-12 text-center shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
                 <UserX className="mx-auto h-16 w-16 text-muted-foreground" />
                 <h3 className="mt-4 text-xl font-bold">No Tenants Yet</h3>
@@ -137,11 +184,11 @@ export default function TenantsPage() {
                       <p className="text-xs text-muted-foreground">
                         Lease Start
                       </p>
-                      <p className="font-bold">{tenant.leaseStart}</p>
+                      <p className="font-bold">{formatDate(tenant.leaseStart)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Lease End</p>
-                      <p className="font-bold">{tenant.leaseEnd}</p>
+                      <p className="font-bold">{formatDate(tenant.leaseEnd)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">
