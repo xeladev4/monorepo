@@ -4,7 +4,7 @@ This PR implements a comprehensive suite of landlord management features, replac
 
 ## Linked issue (recommended)
 
-Closes #landlord-management-features
+Closes #590, Closes #591, Closes #592, Closes #593
 
 ## Changes
 
@@ -19,9 +19,9 @@ Closes #landlord-management-features
 - **[Tenants Roster]** `frontend/app/dashboard/landlord/tenants/page.tsx`: Replaced mock data with live `apiFetch` integration; added NGN currency and date formatting.
 - **[Settings Flow]** `frontend/app/dashboard/landlord/settings/page.tsx`: Implemented full state management for Profile, Notifications, and Payout tabs with real-time API syncing.
 
-## Contract Upgrade Details (if applicable)
+## Implementation Details
 
-N/A
+This is not a SOROBAN contract update. This PR focuses on full-stack features for landlord management.
 
 ## How to test
 
@@ -40,7 +40,7 @@ N/A
 
 ## Screenshots (if UI)
 
-Refer to the provided [walkthrough.md](file:///home/solodev/.gemini/antigravity/brain/5ed5eaf5-a724-4277-bbbb-bfafd6ccff2a/walkthrough.md) for detailed UI screenshots and state transitions (loading/success).
+Refer to the [walkthrough.md](file:///home/solodev/.gemini/antigravity/brain/5ed5eaf5-a724-4277-bbbb-bfafd6ccff2a/walkthrough.md) for detailed UI screenshots and state transitions (loading/success).
 
 ## Checklist
 
