@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, CheckCircle } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+
+interface PhotoFile {
+  id: string;
+  url: string;
+  file: File;
+}
 
 export default function ReportApartmentPage() {
   const [step, setStep] = useState<"form" | "confirmation">("form");
@@ -15,7 +21,7 @@ export default function ReportApartmentPage() {
     bathrooms: "",
     annualRent: "",
     description: "",
-    photos: [] as string[],
+    photos: [] as PhotoFile[],
   });
 
   const handleInputChange = (
@@ -30,15 +36,39 @@ export default function ReportApartmentPage() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const fileArray = Array.from(files).map((file) =>
-        URL.createObjectURL(file),
-      );
+      const newPhotos: PhotoFile[] = Array.from(files).map((file) => ({
+        id: crypto.randomUUID(),
+        url: URL.createObjectURL(file),
+        file,
+      }));
       setFormData((prev) => ({
         ...prev,
-        photos: [...prev.photos, ...fileArray],
+        photos: [...prev.photos, ...newPhotos],
       }));
     }
   };
+
+  const handleRemovePhoto = (id: string) => {
+    setFormData((prev) => {
+      const photoToRemove = prev.photos.find((p) => p.id === id);
+      if (photoToRemove) {
+        URL.revokeObjectURL(photoToRemove.url);
+      }
+      return {
+        ...prev,
+        photos: prev.photos.filter((p) => p.id !== id),
+      };
+    });
+  };
+
+  // Clean up object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      formData.photos.forEach((photo) => {
+        URL.revokeObjectURL(photo.url);
+      });
+    };
+  }, []);
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -46,7 +76,7 @@ export default function ReportApartmentPage() {
       formData.address &&
       formData.bedrooms &&
       formData.annualRent &&
-      formData.photos.length > 0
+      formData.photos.length >= 3
     ) {
       setStep("confirmation");
     }
@@ -181,7 +211,6 @@ export default function ReportApartmentPage() {
                       onChange={handlePhotoUpload}
                       className="hidden"
                       id="photo-upload"
-                      required
                     />
                     <label htmlFor="photo-upload" className="cursor-pointer">
                       <div className="flex justify-center mb-2">
@@ -195,10 +224,54 @@ export default function ReportApartmentPage() {
                       </p>
                     </label>
                   </div>
+
+                  {/* Photo Previews */}
                   {formData.photos.length > 0 && (
-                    <p className="text-sm font-bold mt-2 text-primary">
-                      {formData.photos.length} photo(s) selected
-                    </p>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-bold">
+                          {formData.photos.length} photo{formData.photos.length !== 1 ? 's' : ''} selected
+                        </p>
+                        {formData.photos.length < 3 && (
+                          <p className="text-xs text-destructive font-bold flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            Minimum 3 photos required
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {formData.photos.map((photo) => (
+                          <div
+                            key={photo.id}
+                            className="relative group border-3 border-foreground overflow-hidden"
+                          >
+                            <img
+                              src={photo.url}
+                              alt="Preview"
+                              className="w-full h-24 object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePhoto(photo.id)}
+                              className="absolute top-1 right-1 h-6 w-6 flex items-center justify-center bg-destructive text-white border-2 border-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Remove photo"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Validation Error */}
+                  {formData.photos.length > 0 && formData.photos.length < 3 && (
+                    <div className="mt-2 flex items-start gap-2 border-2 border-destructive bg-destructive/10 p-3">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs text-destructive">
+                        You need at least 3 photos to submit your report. You have {formData.photos.length}. Please add more photos or remove some and upload different ones.
+                      </p>
+                    </div>
                   )}
                 </div>
 
