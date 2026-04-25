@@ -1,30 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle,
   XCircle,
   AlertCircle,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { whistleblowerApplications as applications } from "@/lib/mockData";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+interface WhistleblowerApplication {
+  applicationId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  linkedinProfile: string;
+  facebookProfile: string;
+  instagramProfile: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  socialScore: number;
+  greenFlags: string[];
+  redFlags: string[];
+}
 
 export default function WhistleblowerVerificationPanel() {
+  const [applications, setApplications] = useState<WhistleblowerApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<string | null>(
     null
   );
   const [filterStatus, setFilterStatus] = useState<
     "pending" | "approved" | "rejected" | "all"
   >("pending");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const filtered =
-    filterStatus === "all"
-      ? applications
-      : applications.filter((app) => app.status === filterStatus);
+  // Fetch applications on mount and when filter changes
+  useEffect(() => {
+    fetchApplications();
+  }, [filterStatus]);
+
+  const fetchApplications = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const statusParam = filterStatus !== 'all' ? `?status=${filterStatus}` : '';
+      const response = await fetch(`${API_BASE_URL}/api/admin/whistleblower-applications${statusParam}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to fetch applications');
+      }
+      
+      setApplications(data.applications);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load applications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = applications;
   const selected = selectedApplication
-    ? applications.find((app) => app.id === Number(selectedApplication))
+    ? applications.find((app) => app.applicationId === selectedApplication)
     : null;
 
   let selectedStatusBgClass = "";
@@ -38,14 +86,59 @@ export default function WhistleblowerVerificationPanel() {
     }
   }
 
-  const handleApprove = (id: number) => {
-    // In real app, this would call an API
-    console.log("Approved:", id);
+  const handleApprove = async (applicationId: string) => {
+    setActionLoading(applicationId);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/whistleblower-applications/${applicationId}/approve`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reviewedBy: 'admin' }),
+        }
+      );
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || 'Failed to approve application');
+      }
+      
+      // Refresh applications
+      await fetchApplications();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleReject = (id: number) => {
-    // In real app, this would call an API
-    console.log("Rejected:", id);
+  const handleReject = async (applicationId: string) => {
+    const reason = prompt('Enter rejection reason:');
+    if (!reason) return;
+    
+    setActionLoading(applicationId);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/whistleblower-applications/${applicationId}/reject`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reviewedBy: 'admin', reason }),
+        }
+      );
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || 'Failed to reject application');
+      }
+      
+      // Refresh applications
+      await fetchApplications();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -86,25 +179,40 @@ export default function WhistleblowerVerificationPanel() {
               </div>
             </div>
 
+            {loading && (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            
+            {error && (
+              <div className="mb-4 p-4 border-3 border-destructive bg-red-50 rounded-sm">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button onClick={fetchApplications} variant="outline" className="mt-2">
+                  Retry
+                </Button>
+              </div>
+            )}
+            
             <div className="space-y-3 max-h-[70vh] overflow-y-auto">
               {filtered.map((app) => (
                 <Card
-                  key={app.id}
-                  onClick={() => setSelectedApplication(String(app.id))}
+                  key={app.applicationId}
+                  onClick={() => setSelectedApplication(app.applicationId)}
                   className={`border-3 border-foreground p-3 cursor-pointer transition-all ${
-                    selectedApplication === String(app.id)
+                    selectedApplication === app.applicationId
                       ? "bg-primary shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
                       : "bg-card hover:bg-muted shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
                   }`}
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
-                      <p className="font-bold text-sm">{app.name}</p>
+                      <p className="font-bold text-sm">{app.fullName}</p>
                       <p className="text-xs text-muted-foreground">
                         {app.address}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {app.appliedDate}
+                        {new Date(app.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     {app.status === "pending" && (
@@ -122,19 +230,40 @@ export default function WhistleblowerVerificationPanel() {
             </div>
           </div>
 
-          {/* Detail View */}
-          {selected && (
-            <div className="lg:col-span-2">
-              <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <h2 className="text-2xl font-black">{selected.name}</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {selected.address}
+          {loading && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+          
+          {error && (
+            <div className="mb-4 p-4 border-3 border-destructive bg-red-50 rounded-sm">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button onClick={fetchApplications} variant="outline" className="mt-2">
+                Retry
+              </Button>
+            </div>
+          )}
+          
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+            {filtered.map((app) => (
+              <Card
+                key={app.applicationId}
+                onClick={() => setSelectedApplication(app.applicationId)}
+                className={`border-3 border-foreground p-3 cursor-pointer transition-all ${
+                  selectedApplication === app.applicationId
+                    ? "bg-primary shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                    : "bg-card hover:bg-muted shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <p className="font-bold text-sm">{app.fullName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {app.address}
                     </p>
-                  </div>
-                  <div
-                    className={`px-3 py-1 border-2 border-foreground font-bold text-sm ${
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(app.createdAt).toLocaleDateString()}
                       selectedStatusBgClass
                     }`}
                   >
@@ -156,7 +285,7 @@ export default function WhistleblowerVerificationPanel() {
                     </p>
                     <p>
                       <span className="font-bold">Applied:</span>{" "}
-                      {selected.appliedDate}
+                      {new Date(selected.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -231,7 +360,7 @@ export default function WhistleblowerVerificationPanel() {
                   </p>
                   <div className="space-y-2">
                     <a
-                      href={selected.linkedin}
+                      href={selected.linkedinProfile}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm font-bold text-primary hover:underline border-b border-foreground pb-2"
@@ -240,7 +369,7 @@ export default function WhistleblowerVerificationPanel() {
                       LinkedIn Profile
                     </a>
                     <a
-                      href={selected.facebook}
+                      href={selected.facebookProfile}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm font-bold text-primary hover:underline border-b border-foreground pb-2"
@@ -249,7 +378,7 @@ export default function WhistleblowerVerificationPanel() {
                       Facebook Profile
                     </a>
                     <a
-                      href={selected.instagram}
+                      href={selected.instagramProfile}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm font-bold text-primary hover:underline"
@@ -264,17 +393,27 @@ export default function WhistleblowerVerificationPanel() {
                 {selected.status === "pending" && (
                   <div className="flex gap-3">
                     <Button
-                      onClick={() => handleApprove(selected.id)}
-                      className="flex-1 border-3 border-foreground bg-secondary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      onClick={() => handleApprove(selected.applicationId)}
+                      disabled={actionLoading === selected.applicationId}
+                      className="flex-1 border-3 border-foreground bg-secondary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                     >
-                      <CheckCircle className="mr-2 h-5 w-5" />
+                      {actionLoading === selected.applicationId ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-5 w-5" />
+                      )}
                       Approve
                     </Button>
                     <Button
-                      onClick={() => handleReject(selected.id)}
-                      className="flex-1 border-3 border-destructive bg-transparent px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
+                      onClick={() => handleReject(selected.applicationId)}
+                      disabled={actionLoading === selected.applicationId}
+                      className="flex-1 border-3 border-destructive bg-transparent px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                     >
-                      <XCircle className="mr-2 h-5 w-5" />
+                      {actionLoading === selected.applicationId ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-2 h-5 w-5" />
+                      )}
                       Reject
                     </Button>
                   </div>

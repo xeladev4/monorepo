@@ -1,0 +1,137 @@
+/**
+ * Whistleblower Applications API Client
+ * 
+ * Provides methods to interact with the whistleblower signup API endpoints.
+ */
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+export interface WhistleblowerApplicationData {
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  linkedinProfile: string;
+  facebookProfile: string;
+  instagramProfile: string;
+}
+
+export interface WhistleblowerApplicationResponse {
+  success: boolean;
+  application: {
+    applicationId: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    address: string;
+    linkedinProfile: string;
+    facebookProfile: string;
+    instagramProfile: string;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: string;
+    updatedAt: string;
+  };
+  message: string;
+}
+
+export interface ApiError {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+}
+
+/**
+ * Submits a new whistleblower application to the backend API.
+ * 
+ * @param data - The application data from the signup form
+ * @returns Promise resolving to the created application
+ * @throws Error if the submission fails
+ */
+export async function submitWhistleblowerApplication(
+  data: WhistleblowerApplicationData
+): Promise<WhistleblowerApplicationResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/whistleblower-applications`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(
+      result.error?.message || 'Failed to submit application'
+    ) as Error & { apiError?: ApiError; statusCode?: number };
+    error.apiError = result as ApiError;
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  return result as WhistleblowerApplicationResponse;
+}
+
+/**
+ * Checks the status of an existing whistleblower application.
+ * 
+ * @param applicationId - The ID of the application to check
+ * @returns Promise resolving to the application status
+ */
+export async function checkApplicationStatus(applicationId: string): Promise<{
+  success: boolean;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  reviewedAt?: string;
+  message: string;
+}> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/whistleblower-applications/${applicationId}/status`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(
+      result.error?.message || 'Failed to check application status'
+    ) as Error & { statusCode?: number };
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  return result;
+}
+
+/**
+ * Type guard to check if an error is an API error with validation details.
+ */
+export function isApiError(error: unknown): error is Error & { apiError?: ApiError; statusCode?: number } {
+  return error instanceof Error && 'statusCode' in error;
+}
+
+/**
+ * Extracts user-friendly validation errors from an API error response.
+ */
+export function getValidationErrors(error: unknown): Record<string, string> | null {
+  if (!isApiError(error) || !error.apiError?.error?.details) {
+    return null;
+  }
+  
+  const details = error.apiError.error.details;
+  
+  // Handle Zod validation errors
+  if (details.fieldErrors && typeof details.fieldErrors === 'object') {
+    const errors: Record<string, string> = {};
+    for (const [field, messages] of Object.entries(details.fieldErrors)) {
+      if (Array.isArray(messages) && messages.length > 0) {
+        errors[field] = messages[0];
+      }
+    }
+    return errors;
+  }
+  
+  return null;
+}
