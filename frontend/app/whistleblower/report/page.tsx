@@ -2,13 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, CheckCircle } from "lucide-react";
+import { ArrowLeft, Upload, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+
 export default function ReportApartmentPage() {
   const [step, setStep] = useState<"form" | "confirmation">("form");
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     address: "",
     bedrooms: "",
@@ -40,15 +45,54 @@ export default function ReportApartmentPage() {
     }
   };
 
-  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (
-      formData.address &&
-      formData.bedrooms &&
-      formData.annualRent &&
-      formData.photos.length > 0
-    ) {
+    setServerError(null);
+
+    if (!formData.address || !formData.bedrooms || !formData.annualRent) return;
+    if (formData.photos.length < 3) {
+      setServerError("Please upload at least 3 photos.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        address: formData.address,
+        bedrooms: parseInt(formData.bedrooms, 10),
+        bathrooms: parseInt(formData.bathrooms || "1", 10),
+        annualRentNgn: parseInt(formData.annualRent, 10),
+        description: formData.description || undefined,
+        photos: formData.photos,
+      };
+
+      const res = await fetch(`${API_BASE}/api/whistleblower/listings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json() as { error?: { message?: string }; message?: string };
+
+      if (!res.ok) {
+        const msg =
+          data?.error?.message ||
+          data?.message ||
+          (res.status === 429
+            ? "You have reached the monthly listing limit (2 per month)."
+            : "Failed to submit report. Please try again.");
+        setServerError(msg);
+        return;
+      }
+
       setStep("confirmation");
+    } catch {
+      setServerError(
+        "Network error — please check your connection and try again.",
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -217,11 +261,28 @@ export default function ReportApartmentPage() {
                   </ul>
                 </div>
 
+                {serverError && (
+                  <div
+                    role="alert"
+                    className="border-3 border-destructive bg-red-50 p-4 text-sm font-bold text-destructive"
+                  >
+                    {serverError}
+                  </div>
+                )}
+
                 <Button
                   type="submit"
-                  className="w-full border-3 border-foreground bg-primary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)]"
+                  disabled={submitting}
+                  className="w-full border-3 border-foreground bg-primary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-60"
                 >
-                  Submit Report
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Submitting…
+                    </>
+                  ) : (
+                    "Submit Report"
+                  )}
                 </Button>
               </form>
             </Card>
