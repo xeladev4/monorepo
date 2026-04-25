@@ -14,7 +14,7 @@ import {
 
 export default function WhistleblowerSignupPage() {
   const [currentStep, setCurrentStep] = useState<
-    "info" | "verification" | "confirmation" | "submitting" | "error"
+    "info" | "verification" | "confirmation" | "submitting"
   >("info");
   const [formData, setFormData] = useState({
     fullName: "",
@@ -48,6 +48,9 @@ export default function WhistleblowerSignupPage() {
 
   const handleStep1Submit = () => {
     const errors: Record<string, string> = {};
+
+    setFieldErrors({});
+    setErrorMessage(null);
     
     if (!formData.fullName.trim()) {
       errors.fullName = "Full name is required";
@@ -74,6 +77,9 @@ export default function WhistleblowerSignupPage() {
 
   const handleVerificationSubmit = async () => {
     const errors: Record<string, string> = {};
+
+    setFieldErrors({});
+    setErrorMessage(null);
     
     if (!formData.linkedinProfile.trim()) {
       errors.linkedinProfile = "LinkedIn profile is required";
@@ -120,6 +126,12 @@ export default function WhistleblowerSignupPage() {
       const validationErrors = getValidationErrors(error);
       if (validationErrors) {
         setFieldErrors(validationErrors);
+        setErrorMessage("Please correct the highlighted fields and try again.");
+        const hasStepOneErrors = ['fullName', 'email', 'phone', 'address'].some(
+          (field) => field in validationErrors
+        );
+        setCurrentStep(hasStepOneErrors ? "info" : "verification");
+        return;
       }
 
       // Set general error message
@@ -133,8 +145,8 @@ export default function WhistleblowerSignupPage() {
       } else {
         setErrorMessage("An unexpected error occurred. Please try again.");
       }
-      
-      setCurrentStep("error");
+
+      setCurrentStep("verification");
     }
   };
 
@@ -180,6 +192,18 @@ export default function WhistleblowerSignupPage() {
               <p className="text-muted-foreground mb-6">
                 Earn ₦10-20k by reporting vacant apartments in your building
               </p>
+
+              {errorMessage && (
+                <div className="mb-4 p-4 border-3 border-destructive bg-red-50 rounded-sm">
+                  <div className="flex gap-2">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-destructive">Submission Failed</p>
+                      <p className="text-sm text-destructive/80">{errorMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4 mb-6">
                 <div>
@@ -368,7 +392,10 @@ export default function WhistleblowerSignupPage() {
 
               <div className="flex gap-3">
                 <Button
-                  onClick={() => setCurrentStep("info")}
+                  onClick={() => {
+                    setErrorMessage(null);
+                    setCurrentStep("info");
+                  }}
                   variant="outline"
                   className="flex-1 border-3 border-foreground bg-transparent py-6 font-bold"
                 >
@@ -396,40 +423,6 @@ export default function WhistleblowerSignupPage() {
                 <p className="text-muted-foreground">
                   Please wait while we process your application.
                 </p>
-              </div>
-            </Card>
-          )}
-
-          {/* Error State */}
-          {currentStep === "error" && (
-            <Card className="border-3 border-foreground p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
-              <div className="text-center py-8">
-                <div className="flex justify-center mb-4">
-                  <div className="flex h-16 w-16 items-center justify-center border-3 border-destructive bg-red-100">
-                    <AlertCircle className="h-10 w-10 text-destructive" />
-                  </div>
-                </div>
-                <h2 className="text-2xl font-black mb-2 text-destructive">Submission Failed</h2>
-                <p className="text-muted-foreground mb-6">
-                  {errorMessage || "We couldn't submit your application. Please review your information and try again."}
-                </p>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => setCurrentStep("verification")}
-                    variant="outline"
-                    className="flex-1 border-3 border-foreground bg-transparent py-6 font-bold"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Review
-                  </Button>
-                  <Button
-                    onClick={handleVerificationSubmit}
-                    className="flex-1 border-3 border-foreground bg-primary px-6 py-6 font-bold shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]"
-                  >
-                    Try Again
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </div>
               </div>
             </Card>
           )}

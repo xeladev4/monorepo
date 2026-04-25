@@ -4,7 +4,8 @@
  * Provides methods to interact with the whistleblower signup API endpoints.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 export interface WhistleblowerApplicationData {
   fullName: string;
@@ -122,15 +123,31 @@ export function getValidationErrors(error: unknown): Record<string, string> | nu
   
   const details = error.apiError.error.details;
   
-  // Handle Zod validation errors
-  if (details.fieldErrors && typeof details.fieldErrors === 'object') {
+  if (
+    typeof details === 'object' &&
+    details !== null &&
+    'fieldErrors' in details &&
+    typeof details.fieldErrors === 'object' &&
+    details.fieldErrors !== null
+  ) {
     const errors: Record<string, string> = {};
-    for (const [field, messages] of Object.entries(details.fieldErrors)) {
+    for (const [field, messages] of Object.entries(details.fieldErrors as Record<string, unknown>)) {
       if (Array.isArray(messages) && messages.length > 0) {
-        errors[field] = messages[0];
+        const [message] = messages;
+        if (typeof message === 'string') {
+          errors[field] = message;
+        }
       }
     }
-    return errors;
+    return Object.keys(errors).length > 0 ? errors : null;
+  }
+
+  if (typeof details === 'object' && details !== null && !Array.isArray(details)) {
+    const errors = Object.fromEntries(
+      Object.entries(details).filter(([, value]) => typeof value === 'string')
+    ) as Record<string, string>;
+
+    return Object.keys(errors).length > 0 ? errors : null;
   }
   
   return null;
