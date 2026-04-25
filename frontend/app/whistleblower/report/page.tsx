@@ -74,14 +74,6 @@ export default function ReportApartmentPage() {
     };
   }, []);
 
-  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (
-      formData.address &&
-      formData.bedrooms &&
-      formData.annualRent &&
-      formData.photos.length >= 3
-    ) {
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setServerError(null);
