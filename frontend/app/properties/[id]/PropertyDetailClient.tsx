@@ -55,6 +55,9 @@ import { AmenitiesLegend } from "@/components/properties/AmenitiesLegend";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
 import { VerificationBadge, VerificationStatus } from "@/components/properties/verification-badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ApartmentReviews } from "@/components/properties/ApartmentReviews";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
 const properties = allProperties;
 
@@ -481,6 +484,21 @@ export default function PropertyDetailClient({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Reviews Section */}
+              <div className="border-3 border-foreground bg-card p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)]">
+                <h2 className="font-mono text-xl font-bold mb-6">
+                  User Feedback & Reviews
+                </h2>
+                <Suspense fallback={
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                    <p className="text-muted-foreground font-mono">Loading reviews...</p>
+                  </div>
+                }>
+                  <ApartmentReviews propertyId={propertyId} />
+                </Suspense>
               </div>
             </div>
 
