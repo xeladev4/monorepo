@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import PropertyDetailClient from './PropertyDetailClient'
+import { apiPost } from '@/lib/api'
 
 // Mock Next.js components
 vi.mock('next/image', () => ({
@@ -16,9 +17,17 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Mock toast functions
+const mockShowSuccessToast = vi.fn()
+const mockShowErrorToast = vi.fn()
 vi.mock('@/lib/toast', () => ({
-  showSuccessToast: vi.fn(),
-  showErrorToast: vi.fn(),
+  showSuccessToast: mockShowSuccessToast,
+  showErrorToast: mockShowErrorToast,
+}))
+
+// Mock API functions
+const mockApiPost = vi.fn()
+vi.mock('@/lib/api', () => ({
+  apiPost: mockApiPost,
 }))
 
 describe('PropertyDetailClient - Regression Check', () => {
@@ -74,5 +83,175 @@ describe('PropertyDetailClient - Regression Check', () => {
     // At minimum, pricing information should be visible
     const priceElements = screen.queryAllByText(/₦/)
     expect(priceElements.length).toBeGreaterThan(0)
+  })
+})
+
+describe('PropertyDetailClient - Report Dialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('opens report dialog when Report Listing button is clicked', () => {
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    expect(screen.getByText('Report Listing')).toBeInTheDocument()
+    expect(screen.getByText('Report Category')).toBeInTheDocument()
+  })
+
+  it('disables submit button when form is invalid', () => {
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    const submitButton = screen.getByText('Submit Report')
+    expect(submitButton).toBeDisabled()
+  })
+
+  it('enables submit button when form is valid', async () => {
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    // Select a category
+    const categorySelect = screen.getByRole('combobox')
+    fireEvent.click(categorySelect)
+
+    const fraudOption = await screen.findByText('Fraudulent Listing')
+    fireEvent.click(fraudOption)
+
+    // Add details
+    const detailsTextarea = screen.getByPlaceholderText(/Please provide more information/)
+    fireEvent.change(detailsTextarea, { target: { value: 'This is a test report' } })
+
+    const submitButton = screen.getByText('Submit Report')
+    expect(submitButton).not.toBeDisabled()
+  })
+
+  it('shows loading state during submission', async () => {
+    mockApiPost.mockImplementation(
+      () => new Promise((resolve) =>
+        setTimeout(() => resolve({ success: true, reportId: '123' }), 100)
+      )
+    )
+
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    // Fill form
+    const categorySelect = screen.getByRole('combobox')
+    fireEvent.click(categorySelect)
+    const fraudOption = await screen.findByText('Fraudulent Listing')
+    fireEvent.click(fraudOption)
+
+    const detailsTextarea = screen.getByPlaceholderText(
+      /Please provide more information/
+    )
+    fireEvent.change(detailsTextarea, { target: { value: 'This is a test report' } })
+
+    const submitButton = screen.getByText('Submit Report')
+    fireEvent.click(submitButton)
+
+    // Should show loading state
+    await waitFor(() => {
+      expect(screen.getByText('Submitting...')).toBeInTheDocument()
+    })
+  })
+
+  it('shows success state after successful submission', async () => {
+    mockApiPost.mockResolvedValue({ success: true, reportId: '123' })
+
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    // Fill form
+    const categorySelect = screen.getByRole('combobox')
+    fireEvent.click(categorySelect)
+    const fraudOption = await screen.findByText('Fraudulent Listing')
+    fireEvent.click(fraudOption)
+
+    const detailsTextarea = screen.getByPlaceholderText(
+      /Please provide more information/
+    )
+    fireEvent.change(detailsTextarea, { target: { value: 'This is a test report' } })
+
+    const submitButton = screen.getByText('Submit Report')
+    fireEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Report Submitted')).toBeInTheDocument()
+      expect(mockShowSuccessToast).toHaveBeenCalledWith(
+        'Report submitted successfully!'
+      )
+    })
+  })
+
+  it('shows error state on failed submission', async () => {
+    mockApiPost.mockRejectedValue(new Error('Network error'))
+
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    // Fill form
+    const categorySelect = screen.getByRole('combobox')
+    fireEvent.click(categorySelect)
+    const fraudOption = await screen.findByText('Fraudulent Listing')
+    fireEvent.click(fraudOption)
+
+    const detailsTextarea = screen.getByPlaceholderText(
+      /Please provide more information/
+    )
+    fireEvent.change(detailsTextarea, { target: { value: 'This is a test report' } })
+
+    const submitButton = screen.getByText('Submit Report')
+    fireEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(mockShowErrorToast).toHaveBeenCalledWith(
+        expect.any(Error),
+        'Failed to submit report. Please try again.'
+      )
+    })
+  })
+
+  it('resets form state after successful submission', async () => {
+    mockApiPost.mockResolvedValue({ success: true, reportId: '123' })
+
+    render(<PropertyDetailClient propertyId="1" />)
+
+    const reportButton = screen.getByText('Report Listing')
+    fireEvent.click(reportButton)
+
+    // Fill form
+    const categorySelect = screen.getByRole('combobox')
+    fireEvent.click(categorySelect)
+    const fraudOption = await screen.findByText('Fraudulent Listing')
+    fireEvent.click(fraudOption)
+
+    const detailsTextarea = screen.getByPlaceholderText(
+      /Please provide more information/
+    )
+    fireEvent.change(detailsTextarea, { target: { value: 'This is a test report' } })
+
+    const submitButton = screen.getByText('Submit Report')
+    fireEvent.click(submitButton)
+
+    // Wait for success state and dialog close
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Report Submitted')).not.toBeInTheDocument()
+      },
+      { timeout: 3000 }
+    )
   })
 })
