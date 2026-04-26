@@ -53,6 +53,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { allProperties } from "@/lib/mockData/properties";
 import { AmenitiesLegend } from "@/components/properties/AmenitiesLegend";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
+import { apiPost } from "@/lib/api";
 import { VerificationBadge, VerificationStatus } from "@/components/properties/verification-badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApartmentReviews } from "@/components/properties/ApartmentReviews";
@@ -109,6 +110,7 @@ export default function PropertyDetailClient({
   const [reportCategory, setReportCategory] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const lightboxRef = useRef<HTMLDivElement>(null);
   const mainGalleryRef = useRef<HTMLDivElement>(null);
 
@@ -213,23 +215,38 @@ export default function PropertyDetailClient({
     );
   };
 
-  const handleReportSubmit = () => {
+  const handleReportSubmit = async () => {
     if (!reportCategory || !reportDetails.trim()) return;
 
-    // Stub: In production, this would send to backend
-    console.log("Report submitted:", {
-      propertyId,
-      reportCategory,
-      reportDetails,
-    });
+    setIsSubmittingReport(true);
 
-    setReportSubmitted(true);
-    setTimeout(() => {
-      setShowReportDialog(false);
-      setReportSubmitted(false);
-      setReportCategory("");
-      setReportDetails("");
-    }, 2000);
+    try {
+      const response = await apiPost<{ success: boolean; reportId: string }>(
+        "/api/property-issue-reports",
+        {
+          propertyId,
+          reportCategory,
+          reportDetails,
+        }
+      );
+
+      if (response.success) {
+        setReportSubmitted(true);
+        showSuccessToast("Report submitted successfully!");
+
+        // Reset dialog state after successful submission
+        setTimeout(() => {
+          setShowReportDialog(false);
+          setReportSubmitted(false);
+          setReportCategory("");
+          setReportDetails("");
+        }, 2000);
+      }
+    } catch (error) {
+      showErrorToast(error, "Failed to submit report. Please try again.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
   const handleShare = async () => {
@@ -963,10 +980,17 @@ export default function PropertyDetailClient({
                 </Button>
                 <Button
                   onClick={handleReportSubmit}
-                  disabled={!reportCategory || !reportDetails.trim()}
+                  disabled={!reportCategory || !reportDetails.trim() || isSubmittingReport}
                   className="border-3 border-foreground bg-primary shadow-[3px_3px_0px_0px_rgba(26,26,26,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(26,26,26,1)] disabled:opacity-50"
                 >
-                  Submit Report
+                  {isSubmittingReport ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Report"
+                  )}
                 </Button>
               </DialogFooter>
             </>
