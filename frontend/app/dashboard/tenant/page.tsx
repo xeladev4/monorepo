@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { TenantRewardsSummaryCard } from "@/components/tenant-rewards-summary-card";
 import {
   tenantCurrentLease as currentLease,
   tenantDashboardPaymentSchedule as paymentSchedule,
@@ -368,19 +369,7 @@ export default function TenantDashboard() {
                 </Card>
 
                 {featureFlags.enableExperimentalStaking && (
-                  <Card className="border-3 border-foreground bg-secondary/10 p-6 shadow-[4px_4px_0px_0px_rgba(26,26,26,1)] lg:col-span-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center border-3 border-foreground bg-secondary">
-                        <Heart className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold">Experimental: Staking Rewards</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Coming soon: Earn rewards automatically by paying rent on time!
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
+                  <TenantRewardsSummaryCard />
                 )}
               </div>
             )}
